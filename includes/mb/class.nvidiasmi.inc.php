@@ -27,10 +27,9 @@ class NvidiaSMI extends Sensors
     public function __construct()
     {
         parent::__construct();
-        switch (defined('PSI_SENSOR_NVIDIASMI_ACCESS')?strtolower(PSI_SENSOR_NVIDIASMI_ACCESS):'command') {
+        if (!defined('PSI_EMU_HOSTNAME')) switch (defined('PSI_SENSOR_NVIDIASMI_ACCESS')?strtolower(PSI_SENSOR_NVIDIASMI_ACCESS):'command') {
         case 'command':
-            $lines = "";
-            if (PSI_OS == 'WINNT') {         
+            if (PSI_OS == 'WINNT') {
                 $winnt_exe = (defined('PSI_SENSOR_NVIDIASMI_EXE_PATH') && is_string(PSI_SENSOR_NVIDIASMI_EXE_PATH))?strtolower(PSI_SENSOR_NVIDIASMI_EXE_PATH):"c:\\Program Files\\NVIDIA Corporation\\NVSMI\\nvidia-smi.exe";               
                 if (($_exe=realpath(trim($winnt_exe))) && preg_match("/^([a-zA-Z]:\\\\[^\\\\]+)/", $_exe, $out)) {
                     CommonFunctions::executeProgram('cmd', "/c set ProgramFiles=".$out[1]."^&\"".$_exe."\" -q", $lines);

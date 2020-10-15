@@ -403,6 +403,23 @@ function formatHertz(mhertz) {
 }
 
 /**
+ * format a given MT/s value to a better readable statement with the right suffix
+ * @param {Number} mtps mtps value that should be formatted
+ * @return {String} html string with no breaking spaces and translation statements
+ */
+function formatMTps(mtps) {
+    if ((mtps >= 0) && (mtps < 1000)) {
+        return mtps.toString() + "&nbsp;" + genlang(131);
+    } else {
+        if (mtps >= 1000) {
+            return round(mtps / 1000, 2) + "&nbsp;" + genlang(132);
+        } else {
+            return "";
+        }
+    }
+}
+
+/**
  * format the byte values into a user friendly value with the corespondenting unit expression<br>support is included
  * for binary and decimal output<br>user can specify a constant format for all byte outputs or the output is formated
  * automatically so that every value can be read in a user friendly way
@@ -837,14 +854,16 @@ function countCpu(xml) {
  */
 function fillHWDevice(xml, type, tree, rootposition) {
     var devicecount = 0, html = "";
-    $("Hardware " + type + " Device", xml).each(function getHWDevice(deviceId) {
-        var name = "", count = 0, capacity = 0, manufacturer = "", product = "", serial = "", devcoreposition = 0;
+    $("Hardware " + type + ((type=="MEM")?" Chip":" Device"), xml).each(function getHWDevice(deviceId) {
+        var name = "", count = 0, capacity = 0, manufacturer = "", product = "", serial = "", speed = 0, voltage = 0, devcoreposition = 0;
 
         devicecount++;
         name = $(this).attr("Name");
         capacity = parseInt($(this).attr("Capacity"), 10);
         manufacturer = $(this).attr("Manufacturer");
         product = $(this).attr("Product");
+        speed = parseInt($(this).attr("Speed"), 10);
+        voltage = parseFloat($(this).attr("Voltage"));
         serial = $(this).attr("Serial");
         count = parseInt($(this).attr("Count"), 10);
         if (!isNaN(count) && count > 1) {
@@ -864,6 +883,14 @@ function fillHWDevice(xml, type, tree, rootposition) {
             html += "<tr><td style=\"width:68%\"><div class=\"treediv\"><span class=\"treespan\">" + genlang(123) + ":</span></div></td><td>" + product + "</td></tr>\n";
             tree.push(devcoreposition);
         }
+        if (!isNaN(speed)) {
+            html += "<tr><td style=\"width:68%\"><div class=\"treediv\"><span class=\"treespan\">" + genlang(129) + ":</span></div></td><td>" + ((type=="MEM")?formatMTps(speed):formatBPS(1000000*speed)) + "</td></tr>\n";
+            tree.push(devcoreposition);
+        }
+        if (!isNaN(voltage)) {
+            html += "<tr><td style=\"width:68%\"><div class=\"treediv\"><span class=\"treespan\">" + genlang(52) + ":</span></div></td><td>" + round(voltage, 2) + " V</td></tr>\n";
+            tree.push(devcoreposition);
+        }
         if (serial !== undefined) {
             html += "<tr><td style=\"width:68%\"><div class=\"treediv\"><span class=\"treespan\">" + genlang(124) + ":</span></div></td><td>" + serial + "</td></tr>\n";
             tree.push(devcoreposition);
@@ -878,7 +905,7 @@ function fillHWDevice(xml, type, tree, rootposition) {
 
 function countHWDevice(xml, type) {
     var devicecount = 0;
-    $("Hardware " + type + " Device", xml).each(function getHWDevice(deviceId) {
+    $("Hardware " + type + ((type=="MEM")?" Chip":" Device"), xml).each(function getHWDevice(deviceId) {
         devicecount++;
     });
     return devicecount;
@@ -915,7 +942,7 @@ function refreshHardware(xml) {
         html += fillCpu(xml, tree, tree.push(0), closed);
     }
 
-    var typelist = {PCI:17,IDE:18,SCSI:19,NVMe:126,USB:20,TB:117,I2C:118};
+    var typelist = {MEM:130,PCI:17,IDE:18,SCSI:19,NVMe:126,USB:20,TB:117,I2C:118};
     for (var dev_type in typelist) {
         if (countHWDevice(xml, dev_type)) {
             html += "    <tr><td colspan=\"2\"><div class=\"treediv\"><span class=\"treespanbold\">" + genlang(typelist[dev_type]) + "</span></div></td></tr>\n";
@@ -1255,7 +1282,7 @@ function refreshFilesystems(xml) {
             total_free += free;
             total_size += size;
         }
-        total_usage = round((total_used / total_size) * 100, 2);
+        total_usage = (total_size != 0) ? round(100 - (total_free / total_size) * 100, 2) : 0;
     });
 
     if (!isNaN(threshold) && (total_usage >= threshold)) {
@@ -1923,7 +1950,8 @@ function buildBlock(plugin, translationid, reload) {
     }
     block += "<div id=\"panel_" + plugin + "\" style=\"display:none;\">\n";
     block += "<div id=\"Plugin_" + plugin + "\" class=\"plugin\" style=\"display:none;\">\n";
-    block += "<h2>" + reloadpic + genlang(translationid, plugin) + "</h2>\n";
+    block += "<h2>" + reloadpic + genlang(translationid, plugin) + "\n";
+    block += "<span class=\"Hostname_" + plugin + "\"></span></h2>\n";
     block += "</div>\n";
     block += "</div>\n";
     return block;

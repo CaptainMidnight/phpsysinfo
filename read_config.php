@@ -102,7 +102,7 @@ if (!defined('PSI_CONFIG_FILE')) {
 
     if (!defined('PSI_OS')) { //if not overloaded in phpsysinfo.ini
         /* get Linux code page */
-        if (PHP_OS == 'Linux') {
+        if (PHP_OS == 'Linux') { 
             if (file_exists($fname = '/etc/sysconfig/i18n')
                || file_exists($fname = '/etc/default/locale')
                || file_exists($fname = '/etc/locale.conf')
@@ -243,6 +243,13 @@ if (!defined('PSI_CONFIG_FILE')) {
         }
     }
 
+    /* maximum time in seconds a script is allowed to run before it is terminated by the parser */
+    if (defined('PSI_MAX_TIMEOUT')) {
+        ini_set('max_execution_time', max(intval(PSI_MAX_TIMEOUT), 0));
+    } else {
+        ini_set('max_execution_time', 30);
+    }
+
     /* executeProgram() timeout value in seconds */
     if (defined('PSI_EXEC_TIMEOUT')) {
         define('PSI_EXEC_TIMEOUT_INT', max(intval(PSI_EXEC_TIMEOUT), 1));
@@ -276,7 +283,7 @@ if (!defined('PSI_CONFIG_FILE')) {
             define('PSI_SYSTEM_CODEPAGE', 'UTF-8');
         } elseif (PSI_OS=='Minix') {
             define('PSI_SYSTEM_CODEPAGE', 'CP437');
-        } else {
+        } elseif (PSI_OS!='WINNT'){
             define('PSI_SYSTEM_CODEPAGE', null);
         }
     }

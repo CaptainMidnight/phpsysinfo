@@ -288,6 +288,13 @@ function plugin_request(pluginname) {
          pluginname: pluginname,
          success: function (data) {
             try {
+                for (var propertyName in data.Plugins) {
+                    if ((data.Plugins[propertyName]["@attributes"] !== undefined) && 
+                       ((hostname = data.Plugins[propertyName]["@attributes"]["Hostname"]) !== undefined)) {
+                        $('span[class=hostname_' + pluginname + ']').html(hostname);
+                    }
+                    break;
+                }
                 // dynamic call
                 window['renderPlugin_' + this.pluginname](data);
                 changeLanguage(this.pluginname);
@@ -742,7 +749,30 @@ function renderHardware(data) {
         }
     };
 
+    var mem_directives = {
+        Speed: {
+            html: function() {
+                return formatMTps(this.Speed);
+            }
+        },
+        Voltage: {
+            html: function() {
+                return round(this.Voltage, 2) + ' V';
+            }
+        },
+        Capacity: {
+            html: function () {
+                return formatBytes(this.Capacity, data.Options["@attributes"].byteFormat);
+            }
+        }
+    };
+
     var dev_directives = {
+        Speed: {
+            html: function() {
+                return formatBPS(1000000*this.Speed);
+            }
+        },
         Capacity: {
             html: function () {
                 return formatBytes(this.Capacity, data.Options["@attributes"].byteFormat);
@@ -795,15 +825,23 @@ function renderHardware(data) {
         $("#hardware-CPU").hide();
     }
 
-    var devparamlist = {Capacity:43,Manufacturer:122,Product:123,Serial:124};
-    for (hw_type in {PCI:0,IDE:1,SCSI:2,NVMe:3,USB:4,TB:5,I2C:6}) {
+    var devparamlist = {Capacity:43,Manufacturer:122,Product:123,Speed:129,Voltage:52,Serial:124};
+    for (hw_type in {MEM:0,PCI:1,IDE:2,SCSI:3,NVMe:4,USB:5,TB:6,I2C:7}) {
         try {
-            datas = items(data.Hardware[hw_type].Device);
+            if (hw_type == 'MEM') {
+                datas = items(data.Hardware[hw_type].Chip);
+            } else {
+                datas = items(data.Hardware[hw_type].Device);
+            }
             for (i = 0; i < datas.length; i++) {
                 if (i === 0) {
                     html+="<tr id=\"hardware-" + hw_type + "\" class=\"treegrid-" + hw_type + "\">";
                     html+="<th>" + hw_type + "</th>";
-                    html+="<td><span class=\"treegrid-span\">" + genlang('120') + ":</span></td>"; //Number of devices
+                    if (hw_type == 'MEM') {
+                        html+="<td><span class=\"treegrid-span\">" + genlang('128') + ":</span></td>"; //Number of memories
+                    } else {
+                        html+="<td><span class=\"treegrid-span\">" + genlang('120') + ":</span></td>"; //Number of devices
+                    }                    
                     html+="<td class=\"rightCell\"><span id=\"" + hw_type + "Count\"></span></td>";
                     html+="</tr>";
                 }
@@ -853,10 +891,14 @@ function renderHardware(data) {
     }
 
     var licz;
-    for (hw_type in {PCI:0,IDE:1,SCSI:2,NVMe:3,USB:4,TB:5,I2C:6}) {
+    for (hw_type in {MEM:0,PCI:1,IDE:2,SCSI:3,NVMe:4,USB:5,TB:6,I2C:7}) {
         try {
             licz = 0;
-            datas = items(data.Hardware[hw_type].Device);
+            if (hw_type == 'MEM') {
+                datas = items(data.Hardware[hw_type].Chip);
+            } else {
+                datas = items(data.Hardware[hw_type].Device);
+            }
             for (i = 0; i < datas.length; i++) {
                 $('#hardware-'+hw_type+'-'+ i).render(datas[i]["@attributes"], hw_directives);
                 if ((datas[i]["@attributes"].Count !== undefined) && !isNaN(datas[i]["@attributes"].Count) && (parseInt(datas[i]["@attributes"].Count, 10)>1)) {
@@ -864,9 +906,17 @@ function renderHardware(data) {
                 } else {
                     licz++;
                 }
-                for (proc_param in devparamlist) {
-                    if ((datas[i]["@attributes"][proc_param] !== undefined)) {
-                        $('#hardware-'+hw_type+'-'+ i +'-'+proc_param).render(datas[i]["@attributes"], dev_directives);
+                if (hw_type == 'MEM') {
+                    for (proc_param in devparamlist) {
+                        if ((datas[i]["@attributes"][proc_param] !== undefined)) {
+                            $('#hardware-'+hw_type+'-'+ i +'-'+proc_param).render(datas[i]["@attributes"], mem_directives);
+                        }
+                    }
+                } else {
+                    for (proc_param in devparamlist) {
+                        if ((datas[i]["@attributes"][proc_param] !== undefined)) {
+                            $('#hardware-'+hw_type+'-'+ i +'-'+proc_param).render(datas[i]["@attributes"], dev_directives);
+                        }
                     }
                 }
             }
@@ -1066,11 +1116,23 @@ function renderFilesystem(data) {
         },
         Percent: {
             html: function () {
-                return '<div class="progress">' + '<div class="' +
-                    ( ( ((this.Ignore == undefined) || (this.Ignore < 3)) && ((data.Options["@attributes"].threshold !== undefined) &&
-                        (parseInt(this.Percent, 10) >= parseInt(data.Options["@attributes"].threshold, 10))) ) ? 'progress-bar progress-bar-danger' : 'progress-bar progress-bar-info' ) +
-                    '" style="width:' + this.Percent + '% ;"></div>' +
-                    '</div>' + '<div class="percent">' + this.Percent + '% ' + ((this.Inodes !== undefined) ? '<i>(' + this.Inodes + '%)</i>' : '') + '</div>';
+                var used1 = (this.Total != 0) ? Math.ceil((this.Used / this.Total) * 100) : 0;
+                var used2 = Math.ceil(this.Percent);
+                var used21= used2 - used1;
+                if (used21 > 0) {
+                    return '<div class="progress">' + '<div class="' +
+                        ( ( ((this.Ignore == undefined) || (this.Ignore < 3)) && ((data.Options["@attributes"].threshold !== undefined) &&
+                            (parseInt(this.Percent, 10) >= parseInt(data.Options["@attributes"].threshold, 10))) ) ? 'progress-bar progress-bar-danger' : 'progress-bar progress-bar-info' ) +
+                        '" style="width:' + used1 + '% ;"></div>' +
+                        '<div class="progress-bar progress-bar-warning" style="width:' + used21 + '% ;"></div>'
+                        +'</div><div class="percent">' + this.Percent + '% ' + ((this.Inodes !== undefined) ? '<i>(' + this.Inodes + '%)</i>' : '') + '</div>';
+                } else {
+                    return '<div class="progress">' + '<div class="' +
+                        ( ( ((this.Ignore == undefined) || (this.Ignore < 3)) && ((data.Options["@attributes"].threshold !== undefined) &&
+                            (parseInt(this.Percent, 10) >= parseInt(data.Options["@attributes"].threshold, 10))) ) ? 'progress-bar progress-bar-danger' : 'progress-bar progress-bar-info' ) +
+                        '" style="width:' + used2 + '% ;"></div>' +
+                        '</div>' + '<div class="percent">' + this.Percent + '% ' + ((this.Inodes !== undefined) ? '<i>(' + this.Inodes + '%)</i>' : '') + '</div>';
+                }
             }
         }
     };
@@ -1091,7 +1153,7 @@ function renderFilesystem(data) {
                 total.Free += parseInt(datas[i]["@attributes"].Free, 10);
                 total.Used += parseInt(datas[i]["@attributes"].Used, 10);
             }
-            total.Percent = (total.Total !== 0) ? round((total.Used / total.Total) * 100, 2) : 0;
+            total.Percent = (total.Total != 0) ? round(100 - (total.Free / total.Total) * 100, 2) : 0;
         }
         if (i > 0) {
             $('#filesystem-data').render(fs_data, directives);
@@ -1675,6 +1737,23 @@ function formatHertz(mhertz) {
     } else {
         if (mhertz >= 1000) {
             return round(mhertz / 1000, 2) + String.fromCharCode(160) + genlang(93);
+        } else {
+            return "";
+        }
+    }
+}
+
+/**
+ * format a given MT/s value to a better readable statement with the right suffix
+ * @param {Number} mtps mtps value that should be formatted
+ * @return {String} html string with no breaking spaces and translation statements
+ */
+function formatMTps(mtps) {
+    if ((mtps >= 0) && (mtps < 1000)) {
+        return mtps.toString() + String.fromCharCode(160) + genlang(131);
+    } else {
+        if (mtps >= 1000) {
+            return round(mtps / 1000, 2) + String.fromCharCode(160) + genlang(132);
         } else {
             return "";
         }
