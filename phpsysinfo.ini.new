@@ -334,15 +334,21 @@ FS_USAGE_THRESHOLD=90
 
 
 ; Ignore usage and usage threshold for filesystem types
-; Example : IGNORE_THRESHOLD_FS_TYPES="iso9660, squashfs, devfs, devtmpfs, lxfs, udf, UDF, CDFS"
+; Example : IGNORE_THRESHOLD_FS_TYPES="packagefs, iso9660, squashfs, devfs, devtmpfs, tmpfs, lxfs, udf, UDF, CDFS"
 ;
-IGNORE_THRESHOLD_FS_TYPES="iso9660, squashfs, devfs, devtmpfs, lxfs, udf, UDF, CDFS"
+IGNORE_THRESHOLD_FS_TYPES="packagefs, iso9660, squashfs, devfs, devtmpfs, tmpfs, lxfs, udf, UDF, CDFS"
 
 
 ; Ignore usage of mounts
 ; Example : IGNORE_USAGE="/root,/mnt/c"
 ;
 IGNORE_USAGE=""
+
+
+; Ignore total size of mounts
+; Example : IGNORE_TOTAL="/System/Volumes/VM,/System/Volumes/Prebot"
+;
+IGNORE_TOTAL=""
 
 
 ; Ignore free space size of mounts
@@ -362,6 +368,11 @@ HIDE_FS_TYPES=""
 ;           HIDE_DISKS=true  //hide all partitions
 ;
 HIDE_DISKS=""
+
+
+; Hide totals information
+;
+HIDE_TOTALS=false
 
 
 ; ********************************

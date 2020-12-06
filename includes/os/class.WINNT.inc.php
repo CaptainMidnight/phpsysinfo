@@ -357,7 +357,7 @@ class WINNT extends OS
                     if (!isset($device['PNPClass']) || ($device['PNPClass']===$strType) || ($device['PNPClass']==='System')) {
                         $device['PNPClass'] = null;
                     }
-                    if (!isset($device['Manufacturer']) || preg_match('/^\(.*\)$/', $device['Manufacturer'])) {
+                    if (!isset($device['Manufacturer']) || preg_match('/^\(.*\)$/', $device['Manufacturer']) || (($device['PNPClass']==='USB') && preg_match('/\sUSB\s/', $device['Manufacturer']))) {
                         $device['Manufacturer'] = null;
                     }
                     $device['Capacity'] = null;
@@ -778,7 +778,11 @@ class WINNT extends OS
             $dev = new HWDevice();
             $dev->setName($pciDev['Name']);
             if (defined('PSI_SHOW_DEVICES_INFOS') && PSI_SHOW_DEVICES_INFOS) {
-                $dev->setManufacturer($pciDev['Manufacturer']);
+                if (($pciDev['Manufacturer'] !== null) && preg_match("/^@[^\.]+\.inf,%([^%]+)%$/i", trim($pciDev['Manufacturer']), $mbuff)) {
+                   $dev->setManufacturer($mbuff[1]);
+                } else {
+                    $dev->setManufacturer($pciDev['Manufacturer']);
+                }
                 $dev->setProduct($pciDev['Product']);
             }
             $this->sys->setPciDevices($dev);
@@ -1125,7 +1129,7 @@ class WINNT extends OS
      */
     private function _meminfo()
     {
-        $allMems = CommonFunctions::getWMI($this->_wmi, 'Win32_PhysicalMemory', array('PartNumber', 'DeviceLocator', 'Capacity', 'Manufacturer', 'SerialNumber', 'Speed', 'ConfiguredClockSpeed', 'ConfiguredVoltage', 'MemoryType', 'SMBIOSMemoryType', 'FormFactor', 'DataWidth', 'TotalWidth', 'BankLabel'));
+        $allMems = CommonFunctions::getWMI($this->_wmi, 'Win32_PhysicalMemory', array('PartNumber', 'DeviceLocator', 'Capacity', 'Manufacturer', 'SerialNumber', 'Speed', 'ConfiguredClockSpeed', 'ConfiguredVoltage', 'MemoryType', 'SMBIOSMemoryType', 'FormFactor', 'DataWidth', 'TotalWidth', 'BankLabel', 'MinVoltage', 'MaxVoltage'));
         if ($allMems) {
             $reg = false;
             if (defined('PSI_SHOW_DEVICES_INFOS') && PSI_SHOW_DEVICES_INFOS) {
@@ -1135,17 +1139,17 @@ class WINNT extends OS
             foreach ($allMems as $mem) {
                 $dev = new HWDevice();
                 $name = '';
-                if (isset($mem['PartNumber']) && !preg_match("/^PartNum\d+$/", $part = $mem['PartNumber']) && ($part != '') && ($part != 'None') && ($part != 'NOT AVAILABLE')) {
+                if (isset($mem['PartNumber']) && !preg_match("/^PartNum\d+$/", $part = $mem['PartNumber']) && ($part != '') && ($part != 'None') && ($part != 'N/A') && ($part != 'NOT AVAILABLE')) {
                     $name = $part;
                  }
-                if (isset($mem['DeviceLocator']) && (($dloc = $mem['DeviceLocator']) != '') && ($dloc != 'None')) {
+                if (isset($mem['DeviceLocator']) && (($dloc = $mem['DeviceLocator']) != '') && ($dloc != 'None') && ($dloc != 'N/A')) {
                     if ($name != '') {
                         $name .= ' - '.$dloc;
                     } else {
                         $name = $dloc;
                     }
                 }
-                if (isset($mem['BankLabel']) && (($bank = $mem['BankLabel']) != '') && ($bank != 'None')) {
+                if (isset($mem['BankLabel']) && (($bank = $mem['BankLabel']) != '') && ($bank != 'None') && ($bank != 'N/A')) {
                     if ($name != '') {
                         $name .= ' in '.$bank;
                     } else {
@@ -1158,7 +1162,7 @@ class WINNT extends OS
                     $dev->setName('Physical Memory');
                 }
                 if (defined('PSI_SHOW_DEVICES_INFOS') && PSI_SHOW_DEVICES_INFOS) {
-                    if (isset($mem['Manufacturer']) && !preg_match("/^([A-F\d]{4}|[A-F\d]{12}|[A-F\d]{16})$/", $manufacturer = $mem['Manufacturer']) && !preg_match("/^Manufacturer\d+$/", $manufacturer) && ($manufacturer != '')  && ($manufacturer != 'None') && ($manufacturer != 'UNKNOWN')) {
+                    if (isset($mem['Manufacturer']) && !preg_match("/^([A-F\d]{4}|[A-F\d]{12}|[A-F\d]{16})$/", $manufacturer = $mem['Manufacturer']) && !preg_match("/^Manufacturer\d+$/", $manufacturer) && !preg_match("/^Mfg \d+$/", $manufacturer) && ($manufacturer != '') && ($manufacturer != 'None') && ($manufacturer != 'N/A') && ($manufacturer != 'UNKNOWN')) {
                         $dev->setManufacturer($manufacturer);
                     }
                     if (isset($mem['Capacity'])) {
@@ -1232,10 +1236,15 @@ class WINNT extends OS
                         }
                     }
                     if (isset($mem['Speed']) && (($speed = $mem['Speed']) > 0) && (preg_match('/^(DDR\d*)(.*)/', $memtype, $dr) || preg_match('/^(SDR)AM(.*)/', $memtype, $dr))) {
-                        if (isset($dr[2])) {
-                            $memtype = $dr[1].'-'.$speed.' '.$dr[2];
+                        if (isset($mem['MinVoltage']) && isset($mem['MaxVoltage']) && (($minv = $mem['MinVoltage']) > 0) && (($maxv = $mem['MaxVoltage']) > 0) && ($minv < $maxv)) {
+                            $lv = 'L';
                         } else {
-                            $memtype = $dr[1].'-'.$speed;
+                            $lv = '';
+                        }
+                        if (isset($dr[2])) {
+                            $memtype = $dr[1].$lv.'-'.$speed.' '.$dr[2];
+                        } else {
+                            $memtype = $dr[1].$lv.'-'.$speed;
                         }
                     }
                     if (isset($mem['FormFactor'])) {

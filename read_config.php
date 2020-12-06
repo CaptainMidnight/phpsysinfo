@@ -116,7 +116,7 @@ if (!defined('PSI_CONFIG_FILE')) {
                 if (file_exists('/system/build.prop')) { //Android
                     define('PSI_OS', 'Android');
                     if (@exec('uname -o 2>/dev/null', $unameo) && (sizeof($unameo)>0) && (($unameo0 = trim($unameo[0])) != "")) {
-                        define('PSI_UNAMEO', $unameo0);
+                        define('PSI_UNAMEO', $unameo0); // is Android on Termux
                     }
                     if (!defined('PSI_MODE_POPEN')) { //if not overloaded in phpsysinfo.ini
                         if (!function_exists("proc_open")) { //proc_open function test by executing 'pwd' command
@@ -202,7 +202,7 @@ if (!defined('PSI_CONFIG_FILE')) {
             }
         } elseif (PHP_OS == 'Haiku') {
             if (!(defined('PSI_SYSTEM_CODEPAGE') && defined('PSI_SYSTEM_LANG')) //also if both not overloaded in phpsysinfo.ini
-                && @exec('locale -m 2>/dev/null', $lines)) {
+                && @exec('locale --message 2>/dev/null', $lines)) {
                 foreach ($lines as $line) {
                     if (preg_match('/^"?([^\."]*)\.?([^"]*)/', $line, $matches2)) {
 
